@@ -5,7 +5,7 @@
 
 A from-scratch rebuild of my Windows Server / Active Directory lab, this time running **inside a segmented Cisco network** instead of on my flat home network. The goal is a small-office environment that works the way an IT support technician would actually manage it: a domain controller, centrally managed DHCP and DNS, an OU structure built for Group Policy, department users and groups, password and lockout policy, permission-controlled file shares, and drive mappings that follow group membership.
 
-The underlying network (Catalyst 3560G core, two 2960 access switches, two 1941 routers, VLANs, OSPF, NAT, HSRP) is documented in my [Cisco network lab repo](#). This build depends on it: the domain controller lives in the **Servers VLAN**, workstations live in the **Workstations VLAN**, and DHCP requests cross between them through a relay on the core switch.
+The underlying network (Catalyst 3560G core, two 2960 access switches, two 1941 routers, VLANs, OSPF, NAT, HSRP) is documented in [Cisco network lab repo](https://github.com/Shbucket/homelab-cisco-network-lab-rebuild-). This build depends on it: the domain controller lives in the **Servers VLAN**, workstations live in the **Workstations VLAN**, and DHCP requests cross between them through a relay on the core switch.
 
 As with the network build, every change followed the same method: **predict the result, make the change, verify it, and document what went wrong.**
 
