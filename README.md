@@ -160,6 +160,7 @@ DNS Servers  . . . . . : 10.10.20.20
 DNS Suffix . . . . . . : lab.internal
 Lease Obtained / Expires : Oct 10 → Oct 18 (8 days)
 ```
+<img src='ipconfigall.png' alt="ipconfig /all on WS01" width='600'>
 
 **DHCP Server shows DC01, not the relay.** The switch forwards the request and returns the reply, but never presents itself as the server, so `ipconfig /all` always points at the server to troubleshoot, even across VLANs. The lease also appeared in the DHCP console under the scope's **Address Leases**.
 
@@ -194,6 +195,8 @@ lab.internal
     ├── Groups
     └── Disabled Users
 ```
+
+<img src="OUTree.png" alt="OU structure in Active Directory Users and Computers" width='600'>
 
 - **One top-level LAB OU** separates everything I created from the built-in containers.
 - **Users and computers are split**, since user and computer policies are usually linked to different OUs.
@@ -294,6 +297,11 @@ A **Drive Mappings** GPO linked to **LAB → Users** (User Configuration → Pre
 |---|---|---|
 | djones (Finance) | ✅ | ✅ |
 | mchen (HR) | ✅ | — |
+
+
+<img src="djones.png" alt="This PC as djones: Finance (F:) and Company (S:)" width="48%"> <img src="mchen.png" alt="This PC as mchen: Company (S:) only" width="48%">
+
+Left: `lab\djones` (Finance) gets F: and S:. Right: `lab\mchen` (HR) gets only S:.
 
 **User policies follow the user, not the computer.** WS01 sits in Computers\Workstations, but the mappings come from the user's OU, so they apply wherever the user signs in. Verified with `gpresult /r` under *USER SETTINGS → Applied Group Policy Objects*.
 
