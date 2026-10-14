@@ -1,9 +1,8 @@
-
 # Active Directory Lab — Rebuild (v2)
 
 ## Overview
 
-A from-scratch rebuild of my Windows Server / Active Directory lab, this time running **inside a segmented Cisco network** instead of on my flat home network. The goal is a small-office environment that works the way an IT support technician would actually manage it: a domain controller, centrally managed DHCP and DNS, an OU structure built for Group Policy, department users and groups, password and lockout policy, permission-controlled file shares, and drive mappings that follow group membership.
+A from-scratch rebuild of my Windows Server / Active Directory lab, this time running **inside a segmented Cisco network** instead of on my flat home network. The goal is a small-office environment that works the way an IT support technician would actually manage it: a domain controller, centrally managed DHCP and DNS, an OU structure built for Group Policy, department users and groups, password and lockout policy, permission-controlled file shares, drive mappings that follow group membership, desktop restrictions, an offboarding procedure, Remote Desktop access through a group, and printer deployment by Group Policy.
 
 The underlying network (Catalyst 3560G core, two 2960 access switches, two 1941 routers, VLANs, OSPF, NAT, HSRP) is documented in [Cisco network lab repo](https://github.com/Shbucket/homelab-cisco-network-lab-rebuild-). This build depends on it: the domain controller lives in the **Servers VLAN**, workstations live in the **Workstations VLAN**, and DHCP requests cross between them through a relay on the core switch.
 
@@ -307,6 +306,86 @@ Left: `lab\djones` (Finance) gets F: and S:. Right: `lab\mchen` (HR) gets only S
 
 ---
 
+## 9. Desktop restrictions with security filtering
+
+A **Desktop Restrictions** GPO linked to **LAB → Users**:
+
+User Configuration → Policies → Administrative Templates → Control Panel → **Prohibit access to Control Panel and PC settings: Enabled**
+
+The IT OU sits under LAB\Users too, so by default IT staff — including my admin account — would be locked out of Control Panel as well. **Security filtering** limits who the policy applies to:
+
+| Tab | Change |
+|---|---|
+| Scope → Security Filtering | Removed **Authenticated Users**; added **HR-Staff**, **Finance-Staff**, **Sales-Staff** |
+| Delegation | Added **Authenticated Users** back with **Read** only (not Apply) |
+
+**The Delegation step is the gotcha.** Since the MS16-072 security update, computers read user GPOs using the **computer's own account**. Removing Authenticated Users entirely means computers can't read the GPO, and it silently applies to **nobody**. Read (without Apply) lets the computer read it while the filter still decides who it applies to.
+
+| User | Control Panel / Settings |
+|---|---|
+| mchen (HR) | Blocked |
+| IT user | Opens normally |
+
+---
+
+## 10. Offboarding procedure
+
+*Ticket: "Ashley Brooks (Sales) left the company effective today. Please remove her access."*
+
+| Step | Action in ADUC | Why |
+|---|---|---|
+| 1 | **Disable** the account | Blocks new sign-ins while keeping the account and its history |
+| 2 | **Reset the password** to a random value | If it's re-enabled by mistake, nobody knows the password |
+| 3 | Record, then **remove group memberships** (except Domain Users, the primary group) | Removes access; the record allows a rehire to be restored |
+| 4 | Set **Description**: `Disabled 2026-10-14 - offboarded, ticket #001` | Anyone who finds the account later knows why |
+| 5 | **Move** to **LAB → Disabled Users** | Separates inactive accounts from active ones |
+
+Signing in as `abrooks` on WS01 then returned **"Your account has been disabled."**
+
+**Why disable instead of delete:** every account has a unique security identifier (SID). A deleted account can't be restored by recreating the username — the new account gets a new SID and none of the old permissions or file ownership. Disabling first, and deleting only after a retention period, keeps data handover possible.
+
+**Disabling doesn't end an active session.** A user already signed in keeps working, and their Kerberos tickets stay valid for up to 10 hours. Real terminations also sign the user out or lock the device — and in Microsoft 365, revoke their sessions.
+
+---
+
+## 11. Remote Desktop through a group
+
+*Ticket: "Maria Chen (HR) needs to remote into WS01."* Rather than making her a local administrator, RDP access comes from group membership, deployed to every workstation by GPO.
+
+- Group **RDP-Users** (Global, Security) in LAB\Groups, containing mchen.
+- GPO **Workstation RDP** linked to **LAB → Computers → Workstations** (Computer Configuration):
+
+| Setting | Value |
+|---|---|
+| Remote Desktop Session Host → Connections → **Allow users to connect remotely by using Remote Desktop Services** | Enabled |
+| Network → Network Connections → Windows Defender Firewall → Domain Profile → **Allow inbound Remote Desktop exceptions** | Enabled, scoped to `10.0.0.0/24,10.10.0.0/16` |
+| Preferences → Local Users and Groups → **Remote Desktop Users (built-in)** | Update: add `LAB\RDP-Users` |
+
+The third setting adds the domain group to each workstation's **local** Remote Desktop Users group, so access is managed in one place — RDP-Users membership — with no local admin rights involved.
+
+**Result:** mchen connected to WS01 over RDP from my PC on the home network (`mstsc` → 10.10.10.100), routed through the lab.
+
+---
+
+## 12. Printer deployment
+
+DC01 runs the **Print Server** role with a shared queue, **HR-Printer** (Generic / Text Only driver on the NUL port, standing in for a physical printer).
+
+A **Printer Deployment** GPO linked to **LAB → Users** (User Configuration → Preferences → Control Panel Settings → Printers) adds `\\dc01\HR-Printer` as a shared printer, with **item-level targeting** to **HR-Staff** — the same pattern as the Finance drive.
+
+| User | HR-Printer |
+|---|---|
+| mchen (HR) | Installed automatically, no driver prompt |
+| Finance user | Not deployed |
+
+Because the Generic / Text Only driver is built into Windows, the connection didn't hit the **post-PrintNightmare restriction** that blocks standard users from installing printer drivers from a print server — one of the most common printer tickets in practice.
+
+Desktop Restrictions also blocks the Settings app for HR, so mchen couldn't open *Printers & scanners*. That's realistic: environments that lock down Settings are exactly the ones that push printers through Group Policy. The printer was verified from the Notepad print dialog and with `Get-Printer` instead.
+
+**Open issue:** test jobs printed **on DC01** reached the queue and were logged (PrintService Operational log, Event ID 307), but jobs sent by mchen from WS01 — via `Out-Printer` with no error, to the correct `\\dc01\HR-Printer` name — never appeared on the server, with the printer paused or resumed. Unresolved; the deployment itself works as designed.
+
+---
+
 ## Design decisions
 
 | Decision | Reason |
@@ -361,12 +440,17 @@ Set-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\ServerManager\Roles\12 -Name Con
 
 **S: drive missing for every user.** The Finance user's F: mapping worked, which proved the GPO itself was applying, so the problem had to be the S: item. Its path was typed as **`\\dco1\...` — the letter O instead of a zero.** A bad path makes a drive mapping fail silently for the user; the reason is logged on the client under Event Viewer → Application, source *Group Policy Drive Maps*. Using the browse button or pasting a path copied from File Explorer avoids it.
 
+**RDP refused after the GPO applied.** `gpresult /r` listed Workstation RDP, but `netstat -an | findstr 3389` returned nothing — WS01 wasn't listening at all. The Remote Desktop setting didn't take effect from `gpupdate /force` alone; **restarting WS01** brought port 3389 up and the connection worked. If a policy shows as applied but its effect isn't there, a restart is the next step before digging deeper.
+
+**Desktop restrictions vs. printer checks.** Testing the printer as mchen, the Settings app wouldn't open — blocked by the Desktop Restrictions GPO from step 9, working as intended. Policies interact: a lockdown applied for one reason affects troubleshooting for another. Verified through the Notepad print dialog and `Get-Printer` instead.
+
+**Print jobs from WS01 never reached the server (open).** Jobs from DC01 itself printed and logged Event 307; jobs from mchen on WS01 produced no error and never appeared in the server queue. Checked: correct printer name, spooling settings, paused/resumed queue. Still open — the next checks would be the PrintService Operational log on WS01 and the Print Spooler firewall rules on DC01.
+
+**WS01 clock on Pacific time.** The VM image defaulted to Pacific; fixed with `tzutil /s "Eastern Standard Time"`. Domain time sync corrects the clock, not the time zone. The fleet-wide fix is a GPO or the image itself.
+
 ---
 
 ## What's Next
 
-- **Desktop restrictions GPO** with security filtering, so standard users are restricted but admins aren't
-- **Offboarding procedure** — disable the account, remove group memberships, move it to Disabled Users, and document it as a ticket
-- **Remote Desktop** with access granted through a group rather than local admin rights
 - **DHCP redundancy** — Windows DHCP failover, or a split scope for the guest VLAN on IOS (HSRP provides gateway redundancy, not DHCP redundancy)
 - **Microsoft 365 / Entra ID and Intune**, aligned with MD-102
