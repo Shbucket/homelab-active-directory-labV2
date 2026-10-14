@@ -390,6 +390,8 @@ Desktop Restrictions also blocks the Settings app for HR, so mchen couldn't open
 
 **Open issue:** test jobs printed **on DC01** reached the queue and were logged (PrintService Operational log, Event ID 307), but jobs sent by mchen from WS01 — via `Out-Printer` with no error, to the correct `\\dc01\HR-Printer` name — never appeared on the server, with the printer paused or resumed. Unresolved; the deployment itself works as designed.
 
+<img src="hrprinter.png">
+
 ---
 
 ## Design decisions
