@@ -342,6 +342,9 @@ The IT OU sits under LAB\Users too, so by default IT staff — including my admi
 
 Signing in as `abrooks` on WS01 then returned **"Your account has been disabled."**
 
+<img src="disableduser.png">
+
+
 **Why disable instead of delete:** every account has a unique security identifier (SID). A deleted account can't be restored by recreating the username — the new account gets a new SID and none of the old permissions or file ownership. Disabling first, and deleting only after a retention period, keeps data handover possible.
 
 **Disabling doesn't end an active session.** A user already signed in keeps working, and their Kerberos tickets stay valid for up to 10 hours. Real terminations also sign the user out or lock the device — and in Microsoft 365, revoke their sessions.
@@ -364,6 +367,7 @@ Signing in as `abrooks` on WS01 then returned **"Your account has been disabled.
 The third setting adds the domain group to each workstation's **local** Remote Desktop Users group, so access is managed in one place — RDP-Users membership — with no local admin rights involved.
 
 **Result:** mchen connected to WS01 over RDP from my PC on the home network (`mstsc` → 10.10.10.100), routed through the lab.
+
 <img src="remotedesktopmariacehn.png" >
 ---
 
