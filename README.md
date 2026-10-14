@@ -328,6 +328,7 @@ The IT OU sits under LAB\Users too, so by default IT staff — including my admi
 
 <img src="ksimmoncontrolpanel.png" >
 <img src="djones control panel.png" >
+
 ---
 
 ## 10. Offboarding procedure
@@ -371,6 +372,7 @@ The third setting adds the domain group to each workstation's **local** Remote D
 **Result:** mchen connected to WS01 over RDP from my PC on the home network (`mstsc` → 10.10.10.100), routed through the lab.
 
 <img src="remotedesktopmariacehn.png" >
+
 ---
 
 ## 12. Printer deployment
