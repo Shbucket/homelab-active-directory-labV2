@@ -326,8 +326,8 @@ The IT OU sits under LAB\Users too, so by default IT staff — including my admi
 | djones | Blocked |
 | IT user | Opens normally |
 
-<img src="ksimmoncontrolpanel.png" width="50%">
-<img src="djones control panel.png" width="50%">
+<img src="ksimmoncontrolpanel.png" >
+<img src="djones control panel.png" >
 ---
 
 ## 10. Offboarding procedure
