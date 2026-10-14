@@ -364,7 +364,7 @@ Signing in as `abrooks` on WS01 then returned **"Your account has been disabled.
 The third setting adds the domain group to each workstation's **local** Remote Desktop Users group, so access is managed in one place — RDP-Users membership — with no local admin rights involved.
 
 **Result:** mchen connected to WS01 over RDP from my PC on the home network (`mstsc` → 10.10.10.100), routed through the lab.
-
+<img src="remotedesktopmariacehn.png" >
 ---
 
 ## 12. Printer deployment
